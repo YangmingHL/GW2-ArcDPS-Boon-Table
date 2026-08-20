@@ -120,3 +120,49 @@ if (DEFINED GAME_DIR AND NOT GAME_DIR STREQUAL "")
 			COMMENT "Copying plugin to ${GAME_DIR}..."
 	)
 endif ()
+
+add_library(buff_display SHARED)
+set_property(TARGET buff_display PROPERTY
+		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set_target_properties(buff_display PROPERTIES OUTPUT_NAME "d3d9_arcdps_buff_display")
+
+target_sources(buff_display
+		PRIVATE
+		"ArcDPS Boon Table/icons.rc"
+		"ArcDPS Buff Display/VersionInfo.rc"
+		"ArcDPS Buff Display/BuffTracker.cpp"
+		"ArcDPS Buff Display/EffectCatalog.cpp"
+		"ArcDPS Buff Display/Settings.cpp"
+		"ArcDPS Buff Display/main.cpp"
+		"ArcDPS Buff Display/BuffTracker.h"
+		"ArcDPS Buff Display/EffectCatalog.h"
+		"ArcDPS Buff Display/Settings.h"
+)
+
+target_compile_features(buff_display PUBLIC cxx_std_23)
+target_compile_options(buff_display PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+target_link_libraries(buff_display PUBLIC imgui::imgui)
+target_link_libraries(buff_display PUBLIC ArcdpsExtension::ArcdpsExtension)
+target_link_libraries(buff_display PRIVATE winmm)
+
+include(CTest)
+if (BUILD_TESTING)
+	add_executable(buff_display_tests
+			"ArcDPS Buff Display/tests/BuffTrackerTests.cpp"
+			"ArcDPS Buff Display/BuffTracker.cpp"
+			"ArcDPS Buff Display/EffectCatalog.cpp"
+			"ArcDPS Buff Display/Settings.cpp"
+	)
+	target_compile_features(buff_display_tests PUBLIC cxx_std_23)
+	target_compile_options(buff_display_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+	target_link_libraries(buff_display_tests PRIVATE ArcdpsExtension::ArcdpsExtension)
+	add_test(NAME buff_display_tests COMMAND buff_display_tests)
+endif ()
+
+if (DEFINED GAME_DIR AND NOT GAME_DIR STREQUAL "")
+	add_custom_command(TARGET buff_display POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:buff_display> "${GAME_DIR}/$<TARGET_FILE_NAME:buff_display>"
+			COMMAND ${CMAKE_COMMAND} -E $<IF:$<CONFIG:Debug,RelWithDebInfo>,copy_if_different,true> $<TARGET_PDB_FILE:buff_display> "${GAME_DIR}/$<TARGET_PDB_FILE_NAME:buff_display>"
+			COMMENT "Copying buff display plugin to ${GAME_DIR}..."
+	)
+endif ()
