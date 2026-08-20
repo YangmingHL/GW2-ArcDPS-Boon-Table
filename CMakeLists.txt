@@ -155,6 +155,8 @@ if (BUILD_TESTING)
 	)
 	target_compile_features(buff_display_tests PUBLIC cxx_std_23)
 	target_compile_options(buff_display_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+	set_property(TARGET buff_display_tests PROPERTY
+			MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	target_link_libraries(buff_display_tests PRIVATE ArcdpsExtension::ArcdpsExtension)
 	add_test(NAME buff_display_tests COMMAND buff_display_tests)
 endif ()
