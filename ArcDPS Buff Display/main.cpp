@@ -54,13 +54,17 @@ void SaveIf(bool changed) {
 }
 
 void RenderEffectIcon(const TrackedEffect& tracked, const EffectDefinition* definition,
-	const std::optional<ActiveEffect>& active, float size, bool show_duration, bool show_stacks, size_t index) {
+	const std::optional<ActiveEffect>& active, float size, bool show_duration, bool show_stacks,
+	float expiration_warning_seconds, uint64_t now, size_t index) {
 	ImGui::PushID(static_cast<int>(index));
 	const ImVec2 position = ImGui::GetCursorScreenPos();
 	ImGui::InvisibleButton("##effect", ImVec2(size, size));
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 	const ImVec2 maximum(position.x + size, position.y + size);
 	const bool is_active = active.has_value();
+	const uint64_t warning_ms = static_cast<uint64_t>(expiration_warning_seconds * 1000.0f);
+	const bool is_expiring = active && warning_ms > 0 && active->remaining_ms <= warning_ms;
+	const bool flash_visible = is_expiring && (now / 200) % 2 == 0;
 	const ImU32 tint = is_active ? IM_COL32_WHITE : IM_COL32(255, 255, 255, 70);
 
 	ID3D11ShaderResourceView* texture = nullptr;
@@ -75,7 +79,14 @@ void RenderEffectIcon(const TrackedEffect& tracked, const EffectDefinition* defi
 		const ImVec2 text_size = ImGui::CalcTextSize(fallback.c_str());
 		draw_list->AddText(ImVec2(position.x + (size - text_size.x) * 0.5f, position.y + (size - text_size.y) * 0.5f), tint, fallback.c_str());
 	}
-	draw_list->AddRect(position, maximum, is_active ? IM_COL32(255, 255, 255, 220) : IM_COL32(255, 255, 255, 45), 3.0f, 0, 1.0f);
+	if (flash_visible) {
+		draw_list->AddRectFilled(position, maximum, IM_COL32(255, 32, 24, 72), 3.0f);
+		draw_list->AddRect(ImVec2(position.x + 1.0f, position.y + 1.0f),
+			ImVec2(maximum.x - 1.0f, maximum.y - 1.0f), IM_COL32(255, 56, 40, 255), 3.0f, 0, 3.0f);
+	} else {
+		draw_list->AddRect(position, maximum,
+			is_active ? IM_COL32(255, 255, 255, 220) : IM_COL32(255, 255, 255, 45), 3.0f, 0, 1.0f);
+	}
 
 	if (active && show_duration) {
 		const double seconds = static_cast<double>(active->remaining_ms) / 1000.0;
@@ -163,7 +174,8 @@ void RenderDisplay(uint32_t not_character_select_or_loading, uint32_t hidden_by_
 			ImGui::SetCursorPos(ImVec2(origin.x + static_cast<float>(column) * stride,
 				origin.y + static_cast<float>(row) * stride));
 			RenderEffectIcon(*item.tracked, item.definition, item.active, g_settings.icon_size,
-				g_settings.show_duration, g_settings.show_stacks, index);
+				g_settings.show_duration, g_settings.show_stacks,
+				g_settings.expiration_warning_seconds, now, index);
 		}
 	}
 	ImGui::End();
@@ -182,6 +194,8 @@ void RenderOptions() {
 	changed |= ImGui::Checkbox("显示倒计时", &g_settings.show_duration);
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox("显示层数", &g_settings.show_stacks);
+	changed |= ImGui::SliderFloat("到期提醒", &g_settings.expiration_warning_seconds, 0.0f, 10.0f, "%.1f 秒");
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("0 秒关闭提醒");
 	changed |= ImGui::SliderFloat("图标大小", &g_settings.icon_size, 24.0f, 96.0f, "%.0f");
 	changed |= ImGui::SliderFloat("图标间距", &g_settings.spacing, 0.0f, 24.0f, "%.0f");
 	const char* layouts[] = {"横向", "纵向"};
@@ -284,7 +298,7 @@ arcdps_exports* ModInit() {
 	g_exports.sig = 0xB4F0C39D;
 	g_exports.imguivers = IMGUI_VERSION_NUM;
 	g_exports.out_name = "WvW Buff Display";
-	g_exports.out_build = "1.1.0";
+	g_exports.out_build = "1.2.0";
 	g_exports.combat = CombatCallback;
 	g_exports.imgui = ImGuiCallback;
 	g_exports.options_end = OptionsCallback;
