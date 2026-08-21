@@ -47,6 +47,7 @@ void BuffDisplaySettings::SetDefaults() {
 	show_background = false;
 	show_duration = true;
 	show_stacks = true;
+	expiration_warning_seconds = 1.0f;
 	icon_size = 48.0f;
 	spacing = 4.0f;
 	items_per_line = 8;
@@ -81,6 +82,9 @@ void BuffDisplaySettings::Load() {
 		else if (key == "show_background") show_background = ParseBool(value, show_background);
 		else if (key == "show_duration") show_duration = ParseBool(value, show_duration);
 		else if (key == "show_stacks") show_stacks = ParseBool(value, show_stacks);
+		else if (key == "expiration_warning_seconds") {
+			expiration_warning_seconds = std::clamp(ParseNumber<float>(value, expiration_warning_seconds), 0.0f, 10.0f);
+		}
 		else if (key == "icon_size") icon_size = std::clamp(ParseNumber<float>(value, icon_size), 24.0f, 96.0f);
 		else if (key == "spacing") spacing = std::clamp(ParseNumber<float>(value, spacing), 0.0f, 24.0f);
 		else if (key == "items_per_line") items_per_line = std::clamp(ParseNumber<int>(value, items_per_line), 1, 20);
@@ -116,6 +120,7 @@ void BuffDisplaySettings::Save() const {
 	output << "show_background=" << show_background << '\n';
 	output << "show_duration=" << show_duration << '\n';
 	output << "show_stacks=" << show_stacks << '\n';
+	output << "expiration_warning_seconds=" << expiration_warning_seconds << '\n';
 	output << "icon_size=" << icon_size << '\n';
 	output << "spacing=" << spacing << '\n';
 	output << "items_per_line=" << items_per_line << '\n';
