@@ -17,6 +17,7 @@ public:
 	bool show_background = false;
 	bool show_duration = true;
 	bool show_stacks = true;
+	float expiration_warning_seconds = 1.0f;
 	float icon_size = 48.0f;
 	float spacing = 4.0f;
 	int items_per_line = 8;
