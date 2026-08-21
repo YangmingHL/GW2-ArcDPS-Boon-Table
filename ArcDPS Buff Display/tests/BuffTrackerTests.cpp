@@ -113,11 +113,14 @@ int main() {
 	BuffDisplaySettings settings;
 	settings.Load();
 	assert(!settings.effects.empty());
+	assert(settings.expiration_warning_seconds == 1.0f);
+	settings.expiration_warning_seconds = 2.5f;
 	settings.effects.clear();
 	settings.Save();
 	BuffDisplaySettings reloaded;
 	reloaded.Load();
 	assert(reloaded.effects.empty());
+	assert(reloaded.expiration_warning_seconds == 2.5f);
 	std::filesystem::current_path(original_path);
 	std::filesystem::remove_all(settings_test_path);
 }
