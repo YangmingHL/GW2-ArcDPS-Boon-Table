@@ -2,7 +2,6 @@
 #include "EffectCatalog.h"
 #include "Settings.h"
 
-#include <ArcdpsExtension/EventSequencer.h>
 #include <ArcdpsExtension/IconLoader.h>
 #include <ArcdpsExtension/Singleton.h>
 #include <ArcdpsExtension/arcdps_structs.h>
@@ -34,11 +33,9 @@ BuffTracker g_tracker;
 arcdps_exports g_exports{};
 
 uintptr_t ProcessEvent(cbtevent* event, ag* source, ag* destination, const char*, uint64_t, uint64_t) {
-	g_tracker.Process(event, source, destination);
+	g_tracker.Process(event, source, destination, GetTickCount64());
 	return 0;
 }
-
-ArcdpsExtension::EventSequencer g_sequencer(ProcessEvent);
 
 std::string DisplayName(const TrackedEffect& effect) {
 	if (!effect.custom_name.empty()) return effect.custom_name;
@@ -112,12 +109,12 @@ void RenderDisplay(uint32_t not_character_select_or_loading, uint32_t hidden_by_
 		std::optional<ActiveEffect> active;
 	};
 	std::vector<DisplayItem> items;
-	const uint64_t now = timeGetTime();
+	const uint64_t now = GetTickCount64();
 	for (const TrackedEffect& tracked : g_settings.effects) {
 		const EffectDefinition* definition = FindEffect(tracked.id);
 		const EffectStacking stacking = definition ? definition->stacking : EffectStacking::Duration;
 		auto active = g_tracker.Snapshot(tracked.id, stacking, now);
-		if (active || !g_settings.locked) items.push_back({&tracked, definition, active});
+		items.push_back({&tracked, definition, active});
 	}
 	if (items.empty()) return;
 
@@ -128,9 +125,37 @@ void RenderDisplay(uint32_t not_character_select_or_loading, uint32_t hidden_by_
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	if (ImGui::Begin("WvW Buff Display##wvw_buff_display", nullptr, flags)) {
+		constexpr float drag_height = 28.0f;
+		const size_t line_length = static_cast<size_t>(g_settings.items_per_line);
+		const size_t columns = g_settings.horizontal
+			? std::min(items.size(), line_length)
+			: (items.size() + line_length - 1) / line_length;
+		const float content_width = static_cast<float>(columns) * g_settings.icon_size
+			+ static_cast<float>(columns > 0 ? columns - 1 : 0) * g_settings.spacing;
+		const float drag_width = std::max(content_width, 140.0f);
+		ImGui::InvisibleButton("##drag_area", ImVec2(drag_width, drag_height));
+		if (!g_settings.locked) {
+			if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
+				const ImVec2 position = ImGui::GetWindowPos();
+				const ImVec2 delta = ImGui::GetIO().MouseDelta;
+				ImGui::SetWindowPos(ImVec2(position.x + delta.x, position.y + delta.y), ImGuiCond_Always);
+			}
+		}
+		const ImVec2 minimum = ImGui::GetItemRectMin();
+		const ImVec2 maximum = ImGui::GetItemRectMax();
+		const float center_x = (minimum.x + maximum.x) * 0.5f;
+		const float center_y = (minimum.y + maximum.y) * 0.5f;
+		const ImU32 grip_color = g_settings.locked
+			? IM_COL32(255, 255, 255, 45)
+			: IM_COL32(255, 255, 255, 120);
+		for (int offset = -1; offset <= 1; ++offset) {
+			ImGui::GetWindowDrawList()->AddLine(
+				ImVec2(center_x - 16.0f, center_y + static_cast<float>(offset) * 5.0f),
+				ImVec2(center_x + 16.0f, center_y + static_cast<float>(offset) * 5.0f),
+				grip_color, 2.0f);
+		}
 		const ImVec2 origin = ImGui::GetCursorPos();
 		const float stride = g_settings.icon_size + g_settings.spacing;
-		const size_t line_length = static_cast<size_t>(g_settings.items_per_line);
 		for (size_t index = 0; index < items.size(); ++index) {
 			const DisplayItem& item = items[index];
 			const size_t column = g_settings.horizontal ? index % line_length : index / line_length;
@@ -230,7 +255,7 @@ void RenderOptions() {
 }
 
 void CombatCallback(cbtevent* event, ag* source, ag* destination, const char* skill_name, uint64_t id, uint64_t revision) {
-	g_sequencer.ProcessEvent(event, source, destination, skill_name, id, revision);
+	ProcessEvent(event, source, destination, skill_name, id, revision);
 }
 
 void ImGuiCallback(uint32_t not_character_select_or_loading, uint32_t hidden_by_combat_state) {
@@ -259,7 +284,7 @@ arcdps_exports* ModInit() {
 	g_exports.sig = 0xB4F0C39D;
 	g_exports.imguivers = IMGUI_VERSION_NUM;
 	g_exports.out_name = "WvW Buff Display";
-	g_exports.out_build = "1.0.0";
+	g_exports.out_build = "1.1.0";
 	g_exports.combat = CombatCallback;
 	g_exports.imgui = ImGuiCallback;
 	g_exports.options_end = OptionsCallback;
@@ -269,7 +294,6 @@ arcdps_exports* ModInit() {
 
 void ModRelease() {
 	g_settings.Save();
-	g_sequencer.Shutdown();
 	ArcdpsExtension::g_singletonManagerInstance.Shutdown();
 	g_icons_ready = false;
 	g_device = nullptr;
