@@ -31,6 +31,7 @@ bool g_icons_ready = false;
 BuffDisplaySettings g_settings;
 BuffTracker g_tracker;
 arcdps_exports g_exports{};
+bool g_dragging_display = false;
 
 uintptr_t ProcessEvent(cbtevent* event, ag* source, ag* destination, const char*, uint64_t, uint64_t) {
 	g_tracker.Process(event, source, destination, GetTickCount64());
@@ -112,7 +113,10 @@ void RenderEffectIcon(const TrackedEffect& tracked, const EffectDefinition* defi
 }
 
 void RenderDisplay(uint32_t not_character_select_or_loading, uint32_t hidden_by_combat_state) {
-	if (!g_settings.show || !not_character_select_or_loading || hidden_by_combat_state) return;
+	if (!g_settings.show || !not_character_select_or_loading || hidden_by_combat_state) {
+		g_dragging_display = false;
+		return;
+	}
 
 	struct DisplayItem {
 		const TrackedEffect* tracked;
@@ -127,44 +131,35 @@ void RenderDisplay(uint32_t not_character_select_or_loading, uint32_t hidden_by_
 		auto active = g_tracker.Snapshot(tracked.id, stacking, now);
 		items.push_back({&tracked, definition, active});
 	}
-	if (items.empty()) return;
+	if (items.empty()) {
+		g_dragging_display = false;
+		return;
+	}
 
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize
-		| ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing;
-	if (g_settings.locked) flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		| ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing
+		| ImGuiWindowFlags_NoMove;
+	if (g_settings.locked) flags |= ImGuiWindowFlags_NoInputs;
 	if (!g_settings.show_background) flags |= ImGuiWindowFlags_NoBackground;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	if (ImGui::Begin("WvW Buff Display##wvw_buff_display", nullptr, flags)) {
-		constexpr float drag_height = 28.0f;
-		const size_t line_length = static_cast<size_t>(g_settings.items_per_line);
-		const size_t columns = g_settings.horizontal
-			? std::min(items.size(), line_length)
-			: (items.size() + line_length - 1) / line_length;
-		const float content_width = static_cast<float>(columns) * g_settings.icon_size
-			+ static_cast<float>(columns > 0 ? columns - 1 : 0) * g_settings.spacing;
-		const float drag_width = std::max(content_width, 140.0f);
-		ImGui::InvisibleButton("##drag_area", ImVec2(drag_width, drag_height));
-		if (!g_settings.locked) {
-			if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
+		if (g_settings.locked) {
+			g_dragging_display = false;
+		} else {
+			if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) g_dragging_display = false;
+			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+				&& ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+				g_dragging_display = true;
+			}
+			if (g_dragging_display && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
 				const ImVec2 position = ImGui::GetWindowPos();
 				const ImVec2 delta = ImGui::GetIO().MouseDelta;
 				ImGui::SetWindowPos(ImVec2(position.x + delta.x, position.y + delta.y), ImGuiCond_Always);
 			}
 		}
-		const ImVec2 minimum = ImGui::GetItemRectMin();
-		const ImVec2 maximum = ImGui::GetItemRectMax();
-		const float center_x = (minimum.x + maximum.x) * 0.5f;
-		const float center_y = (minimum.y + maximum.y) * 0.5f;
-		const ImU32 grip_color = g_settings.locked
-			? IM_COL32(255, 255, 255, 45)
-			: IM_COL32(255, 255, 255, 120);
-		for (int offset = -1; offset <= 1; ++offset) {
-			ImGui::GetWindowDrawList()->AddLine(
-				ImVec2(center_x - 16.0f, center_y + static_cast<float>(offset) * 5.0f),
-				ImVec2(center_x + 16.0f, center_y + static_cast<float>(offset) * 5.0f),
-				grip_color, 2.0f);
-		}
+
+		const size_t line_length = static_cast<size_t>(g_settings.items_per_line);
 		const ImVec2 origin = ImGui::GetCursorPos();
 		const float stride = g_settings.icon_size + g_settings.spacing;
 		for (size_t index = 0; index < items.size(); ++index) {
@@ -298,7 +293,7 @@ arcdps_exports* ModInit() {
 	g_exports.sig = 0xB4F0C39D;
 	g_exports.imguivers = IMGUI_VERSION_NUM;
 	g_exports.out_name = "WvW Buff Display";
-	g_exports.out_build = "1.2.0";
+	g_exports.out_build = "1.3.0";
 	g_exports.combat = CombatCallback;
 	g_exports.imgui = ImGuiCallback;
 	g_exports.options_end = OptionsCallback;
