@@ -16,11 +16,6 @@ void History::LogStart(cbtevent* event) {
 		return;
 	}
 
-	// 2 if map log, 3 if boss log
-	if (event->dst_agent != 3) {
-		return;
-	}
-
 	// if we are in wvw, we can skip everything and start wvw logging
 	if (isWvW) {
 		status = Status::NameAcquired;
@@ -29,6 +24,11 @@ void History::LogStart(cbtevent* event) {
 	// if not, we have to wait for the LogNpcUpdate Event, which contains the actual id.
 	// that event might be called immediately or delayed, depending on the fight.
 	else {
+		// 2 if map log, 3 if boss log. WvW squad combat must not depend on this field.
+		if (event->dst_agent != 3) {
+			return;
+		}
+
 		// id for pre-events (e.g. Deimos)
 		status = Status::WaitingForReset;
 	}

@@ -2,6 +2,7 @@
 * arcdps combat api example
 */
 
+#include <cstddef>
 #include <cstdint>
 #include <Windows.h>
 #include <string>
@@ -52,6 +53,44 @@ HMODULE self_dll;
 LPVOID mapViewOfMumbleFile = nullptr;
 CComPtr<ID3D11Device> id3d11d = nullptr;
 bool initSucessful = false;
+
+namespace {
+constexpr bool IsWvWMapType(uint32_t mapType) {
+	switch (mapType) {
+	case 9:  // Eternal Battlegrounds
+	case 10: // Blue Borderlands
+	case 11: // Green Borderlands
+	case 12: // Red Borderlands
+	case 13: // WvW Reward
+	case 14: // Obsidian Sanctum
+	case 15: // Edge of the Mists
+	case 17: // Big Battle
+	case 18: // Armistice Bastion
+		return true;
+	default:
+		return false;
+	}
+}
+
+void RefreshWvWStateFromMumble() {
+	if (!mapViewOfMumbleFile) {
+		return;
+	}
+
+	auto* linkedMem = static_cast<LinkedMem*>(mapViewOfMumbleFile);
+	constexpr std::size_t requiredContextLength = offsetof(MumbleContext, mapType) + sizeof(uint32_t);
+	if (linkedMem->uiVersion == 0 || linkedMem->uiTick == 0 || linkedMem->context_len < requiredContextLength) {
+		return;
+	}
+
+	MumbleContext* context = linkedMem->getMumbleContext();
+	if (context->processId != 0 && context->processId != GetCurrentProcessId()) {
+		return;
+	}
+
+	isWvW = IsWvWMapType(context->mapType);
+}
+}
 
 std::unique_ptr<ArcdpsExtension::UpdateChecker::UpdateState> update_state = nullptr;
 ArcdpsExtension::EventSequencer sequencer = ArcdpsExtension::EventSequencer(ProcessEvent);
@@ -383,26 +422,14 @@ uintptr_t ProcessEvent(cbtevent* ev, ag* src, ag* dst, const char* skillname, ui
 					// 	player.Entity::combatEnter(ev);
 					// }
 				} else if (ev->is_statechange == CBTS_SQCOMBATSTART) {
+					// MAPCHANGE is not replayed when the addon is loaded while already in a map.
+					RefreshWvWStateFromMumble();
 					history.LogStart(ev);
 				} else if (ev->is_statechange == CBTS_SQCOMBATEND) {
 					history.LogEnd(ev);
 				} else if (ev->is_statechange == CBTS_MAPCHANGE) {
-					// Check the new map id if it is one of the wvw maps
-					// TODO: deltaconnected might add the wvw check as flag to `ev->value`
-					switch (ev->src_agent)
-					{
-					case 38: // Eternal Battlegrounds
-					case 1099: // Desert Borderland
-					case 96: // Alpine Borderland 1
-					case 95: // Alpine Borderland 2
-					case 899: // Obsidian Sanctum
-					case 968: // Edge of the Mists
-						isWvW = true;
-						break;
-					default:
-						isWvW = false;
-						break;
-					}
+					// ArcDPS provides the new map type in value; map ids are not stable mode identifiers.
+					isWvW = IsWvWMapType(static_cast<uint32_t>(ev->value));
 				}
 				/* buff remove */
 				else if (ev->is_statechange == CBTS_BUFFREMOVE_SINGLE) {
