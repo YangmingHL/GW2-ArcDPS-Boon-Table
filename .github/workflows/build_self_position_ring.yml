@@ -1,0 +1,34 @@
+name: Build Self Position Ring
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ivy_harmony/self-position-ring
+    paths:
+      - 'self-position-ring/**'
+      - '.github/workflows/build_self_position_ring.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-dll:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Windows x64
+        run: cmake -S self-position-ring -B cmake-build/self-position-ring -A x64
+      - name: Build DLL and checks
+        run: cmake --build cmake-build/self-position-ring --config Release --parallel
+      - name: Check projection, persistence and actual DLL loading
+        run: ctest --test-dir cmake-build/self-position-ring -C Release --output-on-failure
+      - name: Hash delivered DLL
+        shell: pwsh
+        run: Get-FileHash cmake-build/self-position-ring/Release/self_position_ring.dll -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: self-position-ring-windows-x64
+          path: cmake-build/self-position-ring/Release/self_position_ring.dll
+          if-no-files-found: error
+          retention-days: 30

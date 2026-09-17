@@ -1,0 +1,32 @@
+#include <Windows.h>
+#pragma code_page(65001)
+
+101 FONT "@FONT_FILE@"
+102 RCDATA "@LICENSE_FILE@"
+
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "Self Position Ring - 自身定位圈"
+            VALUE "FileVersion", "1.0.0"
+            VALUE "ProductName", "Self Position Ring"
+            VALUE "ProductVersion", "1.0.0 (@RING_REVISION@)"
+            VALUE "OriginalFilename", "self_position_ring.dll"
+            VALUE "LegalCopyright", "Copyright (c) 2026 YangmingHL; third-party notices included in resource 102"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
