@@ -297,7 +297,15 @@ void Load(AddonAPI_t* host) {
     ImFontConfig fontConfig;
     fontConfig.OversampleH = 2;
     fontConfig.OversampleV = 1;
-    api->Fonts_AddFromResource(kFontId, 18, 101, module, FontReceived, &fontConfig);
+    const HRSRC fontResource = FindResourceW(module, MAKEINTRESOURCEW(101), RT_RCDATA);
+    const auto fontHandle = fontResource ? LoadResource(module, fontResource) : nullptr;
+    void* fontBytes = fontHandle ? LockResource(fontHandle) : nullptr;
+    if (fontBytes) {
+        api->Fonts_AddFromMemory(kFontId, 18, fontBytes, SizeofResource(module, fontResource),
+                                 FontReceived, &fontConfig);
+    } else {
+        api->Log(LOGL_WARNING, "Self Position Ring", "Embedded Chinese font could not be loaded.");
+    }
     api->Events_Subscribe(EV_ADDON_LOADED, AddonLoaded);
     api->Events_Subscribe(EV_ADDON_UNLOADED, AddonUnloaded);
     realtime.store(static_cast<RTAPI::RealTimeData*>(api->DataLink_Get("RTAPI")));

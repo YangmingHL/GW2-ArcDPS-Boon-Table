@@ -1,7 +1,8 @@
 #include <Windows.h>
 #pragma code_page(65001)
 
-101 FONT "@FONT_FILE@"
+// OTF is embedded as raw data: the RC FONT handler expects legacy font headers.
+101 RCDATA "@FONT_FILE@"
 102 RCDATA "@LICENSE_FILE@"
 
 1 VERSIONINFO

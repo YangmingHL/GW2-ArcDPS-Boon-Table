@@ -57,11 +57,10 @@ void* Resource(const char* id) {
     return nullptr;
 }
 void Log(ELogLevel, const char*, const char* text) { std::cerr << text << '\n'; }
-void AddFont(const char*, float, uint32_t id, HMODULE handle, FONTS_RECEIVECALLBACK callback, void* cfg) {
-    const auto resource = FindResourceW(handle, MAKEINTRESOURCEW(id), RT_FONT);
-    Require(resource != nullptr, "embedded font missing");
-    fontData = LockResource(LoadResource(handle, resource));
-    fontSize = SizeofResource(handle, resource);
+void AddFont(const char*, float, void* data, uint64_t size, FONTS_RECEIVECALLBACK callback, void* cfg) {
+    Require(data != nullptr && size > 0, "embedded font missing");
+    fontData = data;
+    fontSize = static_cast<DWORD>(size);
     fontConfig = *static_cast<ImFontConfig*>(cfg);
     fontConfig.FontDataOwnedByAtlas = false;
     fontCallback = callback;
@@ -133,7 +132,7 @@ int main(int argc, char** argv) {
         api.Paths_GetAddonDirectory = Directory;
         api.DataLink_Get = Resource;
         api.Log = Log;
-        api.Fonts_AddFromResource = AddFont;
+        api.Fonts_AddFromMemory = AddFont;
         api.Fonts_Release = ReleaseFont;
         api.Localization_Set = Localize;
         api.Events_Subscribe = Subscribe;
