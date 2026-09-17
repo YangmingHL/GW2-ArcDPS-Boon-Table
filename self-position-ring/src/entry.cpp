@@ -71,7 +71,7 @@ bool GetCamera(Camera& camera, Vec3& position) {
     if (!mumble) mumble = static_cast<Mumble::Data*>(api->DataLink_Get(DL_MUMBLE_LINK));
     if (!identity) identity = static_cast<Mumble::Identity*>(api->DataLink_Get(DL_MUMBLE_LINK_IDENTITY));
     if (!nexus || !mumble || !identity || !nexus->IsGameplay ||
-        !mumble->UITick || mumble->Context.IsMapOpen) return false;
+        mumble->Context.IsMapOpen) return false;
 
     // The raw position has no multi-frame moving average, so movement does not trail behind.
     position = Convert(mumble->AvatarPosition);
